@@ -30,7 +30,6 @@ const fetchUser = useCallback(async () => {
     const { data } = await axios.get(`${backendUrl}/api/auth/is-auth?_=${Date.now()}`, {
       headers: {
         ...getAuthHeader(),
-        "Cache-Control": "no-cache",
       },
     });
 

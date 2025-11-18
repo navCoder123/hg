@@ -14,15 +14,16 @@ import qrRouter from "./routes/qrRoutes.js";
 import orderRouter from "./routes/orderRoutes.js";
 
 const app = express();
-const port = process.env.PORT || process.env.PORT_A;
+const port = process.env.PORT || 4000;
 
 // Connect to MongoDB
 connectDB();
 
 // Middleware
 app.use(cors({
-    origin: [process.env.BATO, process.env.BATO_A, process.env.BATO_B, process.env.BATO_C],
-    credentials: true   
+    origin: ["http://localhost:5173","http://localhost:5174"],
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "Cache-Control"],
 }));
 app.use(express.json());
 app.use(cookieParser());

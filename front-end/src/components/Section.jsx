@@ -20,13 +20,21 @@ const Section = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loadingEvents, setLoadingEvents] = useState(true);
 
-  // Fetch events
+  // NEW: Payment Popup Form states
+  const [showPopup, setShowPopup] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState({
+    name: "",
+    email: "",
+    phone: "",
+  });
+  const [eventToPay, setEventToPay] = useState(null);
+
+  // Fetch Events
   const fetchEvents = async () => {
     try {
       const { data } = await axios.get(`${backendUrl}/api/events`);
       if (data.success) setEvents(data.events);
-    } catch (err) {
-      console.error("Error fetching events:", err);
+    } catch {
       toast.error("Failed to load events.");
     } finally {
       setLoadingEvents(false);
@@ -39,29 +47,57 @@ const Section = () => {
 
   // Prevent background scroll when modal is open
   useEffect(() => {
-    document.body.style.overflow = selectedEvent ? "hidden" : "auto";
-  }, [selectedEvent]);
+    document.body.style.overflow =
+      selectedEvent || showPopup ? "hidden" : "auto";
+  }, [selectedEvent, showPopup]);
 
-  // Payment handler (works for logged in or guest)
-  const handlePayClick = async (event) => {
+  // HANDLE PAY CLICK
+  const handlePayClick = (event) => {
+    // If logged-in user has full info → go directly to payment
+    if (userData?.name && userData?.email) {
+      startPayment({
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone || "N/A",
+      }, event);
+      return;
+    }
+
+    // Otherwise open popup form
+    setEventToPay(event);
+    setShowPopup(true);
+  };
+
+  const startPayment = async (info, eventObj) => {
     try {
-      const name = userData?.name || prompt("Enter your name");
-      const email = userData?.email || prompt("Enter your email");
+      await handlePayment(eventObj.amount, {
+        name: info.name,
+        email: info.email,
+        phone: info.phone,
+        eventId: eventObj._id,
+      });
 
-      if (!name || !email) {
-        toast.error("Name and email are required to proceed!");
-        return;
-      }
-
-      await handlePayment(event.amount, { name, email, eventId: event._id });
+      setShowPopup(false);
+      setEventToPay(null);
     } catch (err) {
       toast.error(err.message || "Payment failed");
     }
   };
 
+  const handlePopupSubmit = (e) => {
+    e.preventDefault();
+
+    if (!paymentInfo.name || !paymentInfo.email || !paymentInfo.phone) {
+      toast.error("All fields are required.");
+      return;
+    }
+
+    startPayment(paymentInfo, eventToPay);
+  };
+
   return (
     <>
-      {/* Hero Section */}
+      {/* HERO */}
       <section
         className="relative h-screen flex items-center justify-center text-center bg-black"
         style={{
@@ -81,6 +117,7 @@ const Section = () => {
           >
             Your Ticket to Unforgettable Live Experiences
           </motion.h1>
+
           <motion.p
             className="text-gray-300 text-lg md:text-xl mb-8"
             initial={{ opacity: 0, y: 20 }}
@@ -89,6 +126,7 @@ const Section = () => {
           >
             Discover, book, and enjoy the best concerts, festivals, and live shows.
           </motion.p>
+
           <motion.button
             onClick={() =>
               window.scrollTo({ top: window.innerHeight, behavior: "smooth" })
@@ -103,7 +141,7 @@ const Section = () => {
         </div>
       </section>
 
-      {/* Upcoming Events Slider */}
+      {/* EVENTS */}
       <section className="py-20 bg-black text-white relative" id="events">
         <div className="max-w-7xl mx-auto px-6">
           <h2 className="text-3xl md:text-4xl font-extrabold text-center mb-12">
@@ -142,12 +180,13 @@ const Section = () => {
                 ))}
               </Swiper>
 
-              {/* Navigation Arrows */}
+              {/* Custom Nav */}
               <div className="hidden md:flex absolute inset-y-0 left-0 items-center">
                 <button className="custom-prev bg-white/20 hover:bg-white/40 text-white text-5xl font-bold px-10 py-5 rounded-r-full shadow-xl transition-all duration-300">
                   ‹
                 </button>
               </div>
+
               <div className="hidden md:flex absolute inset-y-0 right-0 items-center">
                 <button className="custom-next bg-white/20 hover:bg-white/40 text-white text-5xl font-bold px-10 py-5 rounded-l-full shadow-xl transition-all duration-300">
                   ›
@@ -158,7 +197,7 @@ const Section = () => {
         </div>
       </section>
 
-      {/* Event Modal */}
+      {/* EVENT MODAL */}
       {selectedEvent && (
         <motion.div
           className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 px-4"
@@ -186,7 +225,9 @@ const Section = () => {
               alt={selectedEvent.title}
               className="w-full h-56 object-cover rounded-lg mb-4"
             />
+
             <h2 className="text-2xl font-bold mb-2">{selectedEvent.title}</h2>
+
             <p className="text-gray-400 mb-1">
               <strong>Price:</strong> ₹{Number(selectedEvent.amount).toLocaleString("en-IN")}
             </p>
@@ -199,9 +240,11 @@ const Section = () => {
             <p className="text-gray-400 mb-1">
               <strong>Genre:</strong> {selectedEvent.genre}
             </p>
-            <p className="text-gray-300 mt-3 leading-relaxed">{selectedEvent.description}</p>
 
-            {/* Payment Button */}
+            <p className="text-gray-300 mt-3 leading-relaxed">
+              {selectedEvent.description}
+            </p>
+
             <button
               onClick={() => handlePayClick(selectedEvent)}
               className="w-full mt-6 py-3 rounded-full font-semibold text-white bg-gradient-to-r from-purple-600 to-teal-400 hover:scale-105 transition-transform"
@@ -211,11 +254,82 @@ const Section = () => {
           </motion.div>
         </motion.div>
       )}
+
+      {/* PAYMENT POPUP FORM */}
+      {showPopup && (
+        <motion.div
+          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 px-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div className="bg-neutral-900 text-white p-6 rounded-xl max-w-md w-full border border-gray-700 shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-center">
+              Enter Your Details
+            </h2>
+
+            <form onSubmit={handlePopupSubmit}>
+              <div className="mb-3">
+                <label className="text-gray-300">Name</label>
+                <input
+                  type="text"
+                  className="w-full p-2 rounded bg-neutral-800 border border-gray-700 mt-1"
+                  value={paymentInfo.name}
+                  onChange={(e) =>
+                    setPaymentInfo({ ...paymentInfo, name: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="mb-3">
+                <label className="text-gray-300">Email</label>
+                <input
+                  type="email"
+                  className="w-full p-2 rounded bg-neutral-800 border border-gray-700 mt-1"
+                  value={paymentInfo.email}
+                  onChange={(e) =>
+                    setPaymentInfo({ ...paymentInfo, email: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="mb-3">
+                <label className="text-gray-300">Phone Number</label>
+                <input
+                  type="tel"
+                  className="w-full p-2 rounded bg-neutral-800 border border-gray-700 mt-1"
+                  value={paymentInfo.phone}
+                  onChange={(e) =>
+                    setPaymentInfo({ ...paymentInfo, phone: e.target.value })
+                  }
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowPopup(false)}
+                  className="w-1/2 py-2 rounded bg-gray-700 hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="w-1/2 py-2 rounded bg-gradient-to-r from-purple-600 to-teal-400 font-semibold"
+                >
+                  Continue to Pay
+                </button>
+              </div>
+            </form>
+          </div>
+        </motion.div>
+      )}
     </>
   );
 };
 
-// Animated Card Component
+/* CARD COMPONENT */
 const AnimatedCard = ({ event, backendUrl, onClick }) => {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
@@ -236,8 +350,8 @@ const AnimatedCard = ({ event, backendUrl, onClick }) => {
         onError={(e) => (e.target.src = img)}
         alt={event.title}
         className="w-full h-60 object-cover rounded-t-xl"
-        loading="lazy"
       />
+
       <div className="p-5">
         <h3 className="text-xl font-bold text-white mb-1">{event.title}</h3>
         <p className="text-gray-400 font-semibold mb-2">
@@ -245,7 +359,10 @@ const AnimatedCard = ({ event, backendUrl, onClick }) => {
         </p>
         <p className="text-gray-500 text-sm">{event.date}</p>
         <p className="text-gray-500 text-sm">{event.location}</p>
-        <p className="text-teal-400 text-sm mt-2 font-medium">Genre: {event.genre}</p>
+        <p className="text-teal-400 text-sm mt-2 font-medium">
+          Genre: {event.genre}
+        </p>
+
         <button className="w-full mt-4 py-2 rounded-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-white font-semibold hover:scale-105 transition-transform">
           More Details
         </button>

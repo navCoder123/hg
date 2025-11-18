@@ -9,14 +9,14 @@ import Order from "../models/orderModel.js";
 
 dotenv.config();
 
-// ✅ Get Razorpay Key
+// Get Razorpay Key
 export const getKey = (req, res) => {
   if (!process.env.RAZORPAY_KEY_ID)
     return res.status(500).json({ message: "Razorpay key missing" });
   res.status(200).json({ key: process.env.RAZORPAY_KEY_ID });
 };
 
-// ✅ Create Razorpay Order
+// Create Razorpay Order
 export const createOrder = async (req, res) => {
   try {
     const { amount, name, email } = req.body;
@@ -38,7 +38,7 @@ export const createOrder = async (req, res) => {
       notes: { userId, name: name || "Guest", email: email || "guest@example.com" },
     });
 
-    // ✅ Save the Razorpay order in DB (no payment yet)
+    // Save the Razorpay order in DB (no payment yet)
     const newOrder = new Order({
       user: userId || null,
       amount,
@@ -54,7 +54,7 @@ export const createOrder = async (req, res) => {
   }
 };
 
-// ✅ Webhook for Razorpay Payment Capture
+// Webhook for Razorpay Payment Capture
 export const razorpayWebhook = async (req, res) => {
   try {
     const signature = req.headers["x-razorpay-signature"];
@@ -79,14 +79,14 @@ export const razorpayWebhook = async (req, res) => {
       const customerName = notes?.name || "Guest";
       const customerEmail = email || notes?.email || "guest@example.com";
 
-      // ✅ Generate QR Folder
+      // Generate QR Folder
       const qrFolder = path.join(process.cwd(), "qrcodes");
       if (!fs.existsSync(qrFolder)) fs.mkdirSync(qrFolder, { recursive: true });
 
       const qrFileName = `${id}.png`;
       const qrFilePath = path.join(qrFolder, qrFileName);
 
-      // ✅ Create QR Code
+      // Create QR Code
       await QRCode.toFile(
         qrFilePath,
         `Payment Successful!\nPayment ID: ${id}\nAmount: ₹${amount / 100} ${currency}\nName: ${customerName}\nEmail: ${customerEmail}`
@@ -94,7 +94,7 @@ export const razorpayWebhook = async (req, res) => {
 
       const qrDataUrl = `${req.protocol}://${req.get("host")}/qrcodes/${qrFileName}`;
 
-      // ✅ Save Payment Info
+      // Save Payment Info
       const newPayment = new Payment({
         paymentId: id,
         orderId: id,
@@ -109,13 +109,13 @@ export const razorpayWebhook = async (req, res) => {
 
       await newPayment.save();
 
-      // ✅ Update related order (add paymentId + mark as paid)
+      // Update related order (add paymentId + mark as paid)
       await Order.findOneAndUpdate(
         { user: userId },
         { paymentId: id, status: "paid" }
       );
 
-      console.log("✅ Payment saved & order updated:", id);
+      console.log("Payment saved & order updated:", id);
 
       res.status(200).json({ message: "Payment saved & QR generated", qrDataUrl });
     } else {
@@ -127,7 +127,7 @@ export const razorpayWebhook = async (req, res) => {
   }
 };
 
-// ✅ Save Payment (Manual Fallback)
+// Save Payment (Manual Fallback)
 export const savePayment = async (req, res) => {
   try {
     const { paymentId, orderId, amount, name, email, qrDataUrl } = req.body;
@@ -162,7 +162,7 @@ export const savePayment = async (req, res) => {
   }
 };
 
-// ✅ Get Payment by ID
+// Get Payment by ID
 export const getPaymentById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -176,7 +176,7 @@ export const getPaymentById = async (req, res) => {
   }
 };
 
-// ✅ Get QR Code by Payment ID
+// Get QR Code by Payment ID
 export const getQR = (req, res) => {
   const { paymentId } = req.body;
   if (!paymentId) return res.status(400).json({ message: "Payment ID required" });
