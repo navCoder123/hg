@@ -15,10 +15,10 @@ const Footer = () => {
         {/* Social Icons */}
         <div className="flex justify-center gap-6 mb-6">
           <a
-            href="#"
+            href="www.instagram.com"
             className="text-gray-400 hover:text-purple-500 transition"
           >
-            <InstagramIcon color="red" size={40}/>
+            <InstagramIcon size={40} />
           </a>
           <a
             href="#"

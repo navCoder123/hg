@@ -1,8 +1,12 @@
 import React from "react";
 import { motion } from "framer-motion";
 import sampleImage from "../assets/hglogo2.jpg";
+import { useState } from "react";
 
 const About = () => {
+
+  const [openModal, setOpenModal] = useState(false)
+
   return (
     <section className="bg-black text-white py-20" id="about">
       <div className="max-w-7xl mx-auto px-6">
@@ -30,7 +34,9 @@ const About = () => {
               to be part of something truly special!
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-              <button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition text-white px-6 py-3 rounded-full font-semibold shadow-lg">
+              <button
+                onClick={() => setOpenModal(true)}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition text-white px-6 py-3 rounded-full font-semibold shadow-lg">
                 Learn More
               </button>
               <button className="bg-transparent border border-purple-600 hover:bg-purple-600 hover:text-white transition text-purple-500 px-6 py-3 rounded-full font-semibold shadow-lg">
@@ -55,6 +61,41 @@ const About = () => {
           </motion.div>
         </div>
       </div>
+      {openModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-md flex justify-center items-center z-40"
+          onClick={() => setOpenModal(false)}
+        >
+          <motion.div
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.7 }}
+            className="bg-black/80 border border-purple-500/50 rounded-2xl 
+            max-w-lg w-full p-8 mx-4 shadow-[0_0_30px_rgba(168,85,247,0.6)]
+            backdrop-blur-xl"
+          >
+            <h2 className="text-3xl font-bold mb-4 
+              bg-gradient-to-r from-purple-300 to-cyan-300 
+              bg-clip-text text-transparent">
+              More About Our Event
+            </h2>
+
+            <p className="text-gray-300 leading-relaxed mb-6">
+              Lorem ipsum dolor sit amet consectetur adipisicing elit. A nostrum, aliquam nemo, debitis et beatae suscipit inventore eius ipsum molestias tempore cum accusamus dicta nulla? Quis maxime delectus quaerat eligendi?
+            </p>
+
+            <button
+              onClick={() => setOpenModal(false)}
+              className="mt-4 px-6 py-2 rounded-full 
+              text-white border border-purple-400 hover:bg-purple-600/30 transition
+              shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+            >
+              Close
+            </button>
+          </motion.div>
+        </div>
+      )}
     </section>
   );
 };

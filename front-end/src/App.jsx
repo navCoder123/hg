@@ -10,6 +10,7 @@ import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import Loader from './components/Loader'
 import MyOrders from './pages/MyOrders'
+import EventPage from './components/EventPage'
 
 
 const App = () => {
@@ -43,6 +44,7 @@ const App = () => {
         <Route path="/payment" element={<Payment />} />
         <Route path="/paymentSuccess/:paymentId" element={<PaymentSuccess />} />
         <Route path='/my-orders' element={<MyOrders />} />
+        <Route path="/event/:id" element={<EventPage />} />
       </Routes>
     </div>
   )
