@@ -28,29 +28,21 @@ connectDB();
 // CORS
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174","hallaghar.vercel.app"],
+    origin: ["http://localhost:5173", "http://localhost:5174","https://hallaghar.vercel.app"],
     credentials: true,
   })
 );
 
-/* ========================================================
-   🔥 1️⃣ RAZORPAY WEBHOOK — MUST BE RAW & ABOVE JSON PARSER
-======================================================== */
 app.post(
   "/api/payment/razorpay-webhook",
   express.raw({ type: "application/json" }), // raw body needed for signature
   razorpayWebhook
 );
 
-/* ========================================================
-   2️⃣ JSON PARSER (AFTER WEBHOOK)
-======================================================== */
 app.use(express.json());
 app.use(cookieParser());
 
-/* ========================================================
-   3️⃣ ROUTES
-======================================================== */
+
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/payment", paymentRouter); // normal payment routes
@@ -66,9 +58,6 @@ app.use("/qrcodes", express.static(path.join(process.cwd(), "qrcodes")));
 
 app.get("/", (req, res) => res.send("API working..."));
 
-/* ========================================================
-   4️⃣ START SERVER
-======================================================== */
 app.listen(port, () =>
   console.log(`🚀 Server running on PORT ${port}`)
 );
