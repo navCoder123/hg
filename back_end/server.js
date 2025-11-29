@@ -26,27 +26,36 @@ const port = process.env.PORT || 4000;
 connectDB();
 
 // CORS
+// CORS
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-  "https://hallaghar.vercel.app"
+  "https://hallaghar.vercel.app",
 ];
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // mobile/insomnia/postman
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+      if (
+        allowedOrigins.includes(origin) ||
+        /\.vercel\.app$/.test(origin) 
+      ) {
         return callback(null, true);
       }
 
-      console.log("❌ CORS blocked:", origin);
+      console.log("CORS BLOCKED:", origin);
       return callback(new Error("CORS not allowed"));
     },
+
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+app.options("*", cors());
+
 
 
 app.post(
