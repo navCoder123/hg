@@ -5,19 +5,16 @@ const orderSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false,
     },
 
     paymentId: {
       type: String,
-      required: false,
       index: true,
     },
 
     razorpayOrderId: {
       type: String,
       required: false,
-      index: true,   // used by webhook to find the order
     },
 
     amount: {
@@ -28,12 +25,10 @@ const orderSchema = new mongoose.Schema(
     eventId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Event",
-      required: false,
     },
 
     qrDataUrl: {
       type: String,
-      required: false,
     },
 
     status: {
@@ -45,7 +40,6 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// helpful indexes
 orderSchema.index({ user: 1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ razorpayOrderId: 1 });
