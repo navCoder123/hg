@@ -26,12 +26,28 @@ const port = process.env.PORT || 4000;
 connectDB();
 
 // CORS
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "https://hallaghar.vercel.app"
+];
+
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174","https://hallaghar.vercel.app"],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // mobile/insomnia/postman
+
+      if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("❌ CORS blocked:", origin);
+      return callback(new Error("CORS not allowed"));
+    },
     credentials: true,
   })
 );
+
 
 app.post(
   "/api/payment/razorpay-webhook",
