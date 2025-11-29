@@ -1,4 +1,4 @@
-// backend/controller/qrController.js
+
 import QrCode from "../models/QrCode.js";
 
 export const saveScannedQr = async (req, res) => {

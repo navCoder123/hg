@@ -13,7 +13,7 @@ const PaymentPage = () => {
       return;
     }
 
-    // Override handlePayment to capture QR and payment info
+    // Initiate payment
     handlePayment(amount, async (response, dataUrl) => {
       setPaymentInfo(response);
       setQrDataUrl(dataUrl);

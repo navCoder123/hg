@@ -1,4 +1,3 @@
-// src/context/AppContextProvider.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -7,103 +6,192 @@ import { AppContext } from "./AppContext";
 export const AppContextProvider = ({ children }) => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
+  // Tokens stored ONLY in memory
+  const [accessToken, setAccessToken] = useState(null);
   const [userData, setUserData] = useState(null);
   const [isLoggedin, setIsLoggedin] = useState(false);
-  const [loading, setLoading] = useState(true); // auth check loading
+  const [loading, setLoading] = useState(true);
+
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
-  // Helper: get Authorization header
-  const getAuthHeader = () => {
-    const token = localStorage.getItem("token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
+  /* ----------------------------------------------------------
+     REFRESH ACCESS TOKEN (httpOnly cookie)
+  ---------------------------------------------------------- */
+  const refreshAccessToken = useCallback(async () => {
+    try {
+      const res = await axios.post(
+        `${backendUrl}/api/auth/refresh-token`,
+        {},
+        { withCredentials: true }
+      );
 
-  // Fetch current user info from backend
-  // Inside AppContextProvider.jsx
+      const data = res.data;
 
-const fetchUser = useCallback(async () => {
-  try {
-    setLoading(true);
+      if (data.success && data.accessToken) {
+        setAccessToken(data.accessToken);
+        return data.accessToken;
+      }
 
-    // Add no-cache header and a timestamp query param to avoid 304
-    const { data } = await axios.get(`${backendUrl}/api/auth/is-auth?_=${Date.now()}`, {
-      headers: {
-        ...getAuthHeader(),
-      },
+      // Refresh failed → fully logout
+      setAccessToken(null);
+      setUserData(null);
+      setIsLoggedin(false);
+      return null;
+
+    } catch (err) {
+      console.log("Refresh failed:", err.response?.data?.message || err.message);
+      setAccessToken(null);
+      setUserData(null);
+      setIsLoggedin(false);
+      return null;
+    }
+  }, [backendUrl]);
+
+  /* ----------------------------------------------------------
+     Add Authorization header automatically
+  ---------------------------------------------------------- */
+  useEffect(() => {
+    const reqInterceptor = axios.interceptors.request.use((config) => {
+      if (accessToken) {
+        config.headers.Authorization = `Bearer ${accessToken}`;
+      }
+      return config;
     });
 
-    if (data.success) {
-      // fetch full user data
-      const userRes = await axios.get(`${backendUrl}/api/user/data?_=${Date.now()}`, {
-        headers: {
-          ...getAuthHeader(),
-          "Cache-Control": "no-cache",
-        },
-      });
+    return () => axios.interceptors.request.eject(reqInterceptor);
+  }, [accessToken]);
 
-      if (userRes.data.success) {
-        setUserData(userRes.data.userData);
-        setIsLoggedin(true);
-      } else {
-        setUserData(null);
-        setIsLoggedin(false);
+  /* ----------------------------------------------------------
+     Handle expired tokens globally
+  ---------------------------------------------------------- */
+  useEffect(() => {
+    const resInterceptor = axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const original = error.config;
+
+        if (
+          error.response?.data?.message === "ACCESS_TOKEN_EXPIRED" &&
+          !original._retry
+        ) {
+          original._retry = true;
+
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            original.headers.Authorization = `Bearer ${newToken}`;
+            return axios(original);
+          }
+        }
+
+        return Promise.reject(error);
       }
-    } else {
+    );
+
+    return () => axios.interceptors.response.eject(resInterceptor);
+  }, [refreshAccessToken]);
+
+  /* ----------------------------------------------------------
+     Fetch user data
+  ---------------------------------------------------------- */
+  const fetchUser = useCallback(async () => {
+    if (!accessToken) return;
+
+    try {
+      const authRes = await axios.get(`${backendUrl}/api/auth/is-auth`);
+
+      if (authRes.data.success) {
+        const userRes = await axios.post(`${backendUrl}/api/user/data`);
+
+        if (userRes.data.success) {
+          setUserData(userRes.data.userData);
+          setIsLoggedin(true);
+          return;
+        }
+      }
+
+      // If failed
+      setUserData(null);
+      setIsLoggedin(false);
+    } catch {
       setUserData(null);
       setIsLoggedin(false);
     }
-  } catch (err) {
-    setUserData(null);
-    setIsLoggedin(false);
-    console.error("Auth check failed:", err.response?.data?.message || err.message);
-  } finally {
-    setLoading(false);
-  }
-}, [backendUrl]);
+  }, [backendUrl, accessToken]);
 
+  /* ----------------------------------------------------------
+     Auto-fetch user whenever accessToken updates
+  ---------------------------------------------------------- */
+  useEffect(() => {
+    if (accessToken) {
+      fetchUser();
+    }
+  }, [accessToken, fetchUser]);
 
-  // Fetch orders for logged-in user
+  /* ----------------------------------------------------------
+     Restore session on page refresh
+  ---------------------------------------------------------- */
+  useEffect(() => {
+    const restore = async () => {
+      const token = await refreshAccessToken();
+
+      if (!token) {
+        setIsLoggedin(false);
+      }
+
+      setLoading(false);
+    };
+
+    restore();
+  }, []);
+
+  /* ----------------------------------------------------------
+     Fetch orders
+  ---------------------------------------------------------- */
   const fetchOrders = useCallback(async () => {
-    if (!userData?._id) return;
+    if (!accessToken) return;
+
     setOrdersLoading(true);
+
     try {
       const { data } = await axios.get(`${backendUrl}/api/orders/my-orders`, {
-        headers: getAuthHeader(),
+        withCredentials: true,
       });
-      if (data.success && Array.isArray(data.orders)) {
-        setOrders(data.orders);
-      } else {
-        setOrders([]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch orders:", err.response?.data?.message || err.message);
+
+      setOrders(data.success ? data.orders : []);
+    } catch {
       setOrders([]);
     } finally {
       setOrdersLoading(false);
     }
-  }, [backendUrl, userData]);
+  }, [backendUrl, accessToken]);
 
-  // Check auth on app load
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+  /* ----------------------------------------------------------
+     Logout
+  ---------------------------------------------------------- */
+  const logout = async () => {
+    try {
+      await axios.post(`${backendUrl}/api/auth/logout`, {}, { withCredentials: true });
+    } catch {}
 
-  // Logout
-  const logout = () => {
-    localStorage.removeItem("token");
+    setAccessToken(null);
     setUserData(null);
     setIsLoggedin(false);
     setOrders([]);
+
     toast.success("Logged out successfully.");
   };
 
+  /* ----------------------------------------------------------
+     Provider Export
+  ---------------------------------------------------------- */
   return (
     <AppContext.Provider
       value={{
         backendUrl,
+        accessToken,
+        setAccessToken,
         userData,
-        setUserData,
         isLoggedin,
         setIsLoggedin,
         fetchUser,

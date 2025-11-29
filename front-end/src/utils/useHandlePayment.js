@@ -1,125 +1,77 @@
 // src/utils/useHandlePayment.js
 import { useContext } from "react";
-import QRCode from "qrcode";
+import axios from "axios";
 import { AppContext } from "../context/AppContext";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-// Dynamically load Razorpay SDK
+// Load Razorpay SDK dynamically
 const loadRazorpayScript = () =>
-  new Promise((resolve, reject) => {
+  new Promise((resolve) => {
     if (document.getElementById("razorpay-script")) return resolve(true);
     const script = document.createElement("script");
     script.id = "razorpay-script";
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.onload = () => resolve(true);
-    script.onerror = () => reject(false);
+    script.onerror = () => resolve(false);
     document.body.appendChild(script);
   });
 
 const useHandlePayment = () => {
   const { userData } = useContext(AppContext);
 
-  const handlePayment = async (amount) => {
+  const handlePayment = async (amount, eventId) => {
     try {
-      const numericAmount = Number(amount);
-      if (!numericAmount || numericAmount <= 0)
-        throw new Error("Invalid amount");
+      if (!amount || amount <= 0) throw new Error("Invalid amount");
 
       const loaded = await loadRazorpayScript();
-      if (!loaded) throw new Error("Razorpay SDK failed to load");
+      if (!loaded) throw new Error("Razorpay failed to load");
 
-      // Get Razorpay key
-      const keyRes = await fetch(`${backendUrl}/api/payment/razorpay-key`);
-      const keyData = await keyRes.json();
-      if (!keyData.key)
-        throw new Error(keyData.message || "Razorpay key not found");
+      // 1. GET RAZORPAY KEY
+      const keyRes = await axios.get(`${backendUrl}/api/payment/razorpay-key`);
+      const key = keyRes.data.key;
 
-      // Create order
-      const orderRes = await fetch(`${backendUrl}/api/payment/create-order`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+      // 2. CREATE ORDER (axios automatically sends Authorization token)
+      const orderRes = await axios.post(
+        `${backendUrl}/api/payment/create-order`,
+        { 
+          amount,
+          eventId,
+          name: userData?.name,
+          email: userData?.email,
         },
-        body: JSON.stringify({
-          amount: numericAmount,
-          userId: userData?._id,
-          name: userData?.name || "Guest",
-          email: userData?.email || "guest@example.com",
-        }),
-      });
+        { withCredentials: true , headers: {},}
 
-      const orderData = await orderRes.json();
-      if (!orderData.success)
-        throw new Error(orderData.message || "Order creation failed");
+      );
 
-      const order = orderData.order;
+      if (!orderRes.data.success) throw new Error("Order creation failed");
 
+      const order = orderRes.data.order;
+
+      // 3. OPEN RAZORPAY CHECKOUT
       const options = {
-        key: keyData.key,
+        key,
         amount: order.amount,
         currency: "INR",
         name: "HALLA GHAR",
-        description: "Event Ticket Payment",
+        description: "Event Ticket",
         order_id: order.id,
         handler: async (response) => {
-          try {
-            const qrText = `Payment Successful!
-               Payment ID: ${response.razorpay_payment_id}
-               Order ID: ${response.razorpay_order_id}
-               Amount: ₹${order.amount / 100}
-               Name: ${userData?.name || "Guest"}
-               Email: ${userData?.email || "guest@example.com"}`;
-
-            const qrDataUrl = await QRCode.toDataURL(qrText, { width: 300 });
-
-            // Save payment
-            await fetch(`${backendUrl}/api/payment/save`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${localStorage.getItem("token")}`,
-              },
-              body: JSON.stringify({
-                paymentId: response.razorpay_payment_id,
-                orderId: response.razorpay_order_id,
-                amount: order.amount / 100,
-                name: userData?.name || "Guest",
-                email: userData?.email || "guest@example.com",
-                qrDataUrl,
-                userId: userData?._id,
-              }),
-            });
-
-            // Save order
-            await fetch(`${backendUrl}/api/orders/save-order`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${localStorage.getItem("token")}`,
-              },
-              body: JSON.stringify({
-                paymentId: response.razorpay_payment_id,
-                amount: order.amount / 100,
-                eventId: null, // replace if event-specific
-              }),
-            });
-
-            // Redirect to success page
-            window.location.href = `/paymentSuccess/${response.razorpay_payment_id}`;
-          } catch (err) {
-            console.error("Error saving payment/order:", err);
-            alert("Payment successful, but saving data failed.");
-          }
+         window.location.href = `/payment-success/${response.razorpay_payment_id}`;
+        },
+        prefill: {
+          name: userData?.name || "",
+          email: userData?.email || "",
         },
         theme: { color: "#111" },
       };
+      console.log("ORDER RESPONSE:", orderRes.data);
 
-      new window.Razorpay(options).open();
+      const razorpayObject = new window.Razorpay(options);
+      razorpayObject.open();
     } catch (err) {
       console.error("Payment error:", err);
-      alert(err.message);
+      throw err;
     }
   };
 

@@ -26,7 +26,7 @@ const Verify = () => {
   }
 
 const handlePaste = (e) => {
-  e.preventDefault(); // optional: to avoid default paste behavior
+  e.preventDefault(); 
   const paste = e.clipboardData.getData('text').trim();
   const pasteArray = paste.split('');
 
@@ -36,7 +36,7 @@ const handlePaste = (e) => {
     }
   });
 
-  // Optionally, focus next empty input
+ 
   const nextEmpty = inputRefs.current.findIndex(input => input.value === '');
   if (nextEmpty !== -1) {
     inputRefs.current[nextEmpty].focus();

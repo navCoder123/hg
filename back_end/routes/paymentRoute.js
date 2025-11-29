@@ -1,39 +1,61 @@
 // routes/paymentRoute.js
 import express from "express";
-import bodyParser from "body-parser";
-import { getKey, createOrder, razorpayWebhook, getQR, savePayment } from "../controller/paymentController.js";
+import { 
+  getKey, 
+  createOrder, 
+  getQR, 
+  savePayment 
+} from "../controller/paymentController.js";
+
 import Payment from "../models/paymentModel.js";
 import userAuth from "../middleware/userAuth.js";
 
 const router = express.Router();
 
-router.post(
-  "/razorpay-webhook",
-  bodyParser.raw({ type: "application/json" }),
-  razorpayWebhook
-);
+/* ============================================
+   1️⃣ REMOVE WEBHOOK FROM HERE  
+   Webhook MUST be handled only in server.js
+============================================ */
+// ❌ DO NOT PUT WEBHOOK HERE
+// router.post("/razorpay-webhook", razorpayWebhook);
 
-router.post("/get-qr", getQR);
+/* ============================================
+   2️⃣ GET RAZORPAY KEY (public)
+============================================ */
 router.get("/razorpay-key", getKey);
-router.post("/create-order", createOrder);
-router.post("/save", savePayment);
+
+/* ============================================
+   3️⃣ CREATE ORDER (authenticated)
+============================================ */
+router.post("/create-order", userAuth, createOrder);
+
+/* ============================================
+   4️⃣ SAVE PAYMENT (manual fallback)
+============================================ */
+router.post("/save", userAuth, savePayment);
+
+/* ============================================
+   5️⃣ GET QR FOR PAYMENT (authenticated)
+============================================ */
+router.post("/get-qr", userAuth, getQR);
+
+/* ============================================
+   6️⃣ Get Payment by paymentId 
+============================================ */
 router.get("/:id", async (req, res) => {
   try {
     const payment = await Payment.findOne({ paymentId: req.params.id });
-    if (!payment) return res.status(404).json({ message: "Payment not found" });
 
-    const formatted = {
-      paymentId: payment.paymentId,
-      orderId: payment.orderId,
-      amount: payment.amount,
-      qrDataUrl: payment.qrDataUrl,
-    };
+    if (!payment) {
+      return res.status(404).json({ message: "Payment not found" });
+    }
 
-    res.json(formatted);
+    res.json({ payment });
+
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
 
 export default router;

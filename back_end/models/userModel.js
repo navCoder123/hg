@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema(
     resetOtp: { type: String, default: "" },
     resetOtpExpireAt: { type: Number, default: 0 },
     authType: { type: String, default: "local" },
+    refreshToken: { type: String, default: "" }, 
   },
   { timestamps: true }
 );

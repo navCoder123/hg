@@ -7,9 +7,10 @@ import { Eye, EyeOff, Mail, KeyRound, User } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { backendUrl, setIsLoggedin, fetchUser } = useContext(AppContext);
+  const { backendUrl, setIsLoggedin, fetchUser, setAccessToken } =
+    useContext(AppContext);
 
-  const [state, setState] = useState("login"); // "login" or "signup"
+  const [state, setState] = useState("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,22 +23,30 @@ const Login = () => {
 
     try {
       const endpoint = state === "signup" ? "register" : "login";
-      const body = state === "signup" ? { name, email, password } : { email, password };
+      const body =
+        state === "signup"
+          ? { name, email, password }
+          : { email, password };
 
-      const { data } = await axios.post(`${backendUrl}/api/auth/${endpoint}`, body);
+      // Send login/register request
+      const { data } = await axios.post(
+        `${backendUrl}/api/auth/${endpoint}`,
+        body,
+        { withCredentials: true }
+      );
 
-      if (data.success && data.token) {
-        // Save JWT in localStorage
-        localStorage.setItem("token", data.token);
+      if (data.success && data.accessToken) {
+        // Store access token ONLY in memory
+        setAccessToken(data.accessToken);
 
-        // Fetch full user info
+        // Fetch user using new access token
         await fetchUser();
 
         setIsLoggedin(true);
         toast.success(data.message);
-        navigate("/"); // redirect home
+        navigate("/");
       } else {
-        toast.error(data.message || "Something went wrong");
+        toast.error(data.message || "Authentication failed");
       }
     } catch (err) {
       toast.error(err.response?.data?.message || err.message);

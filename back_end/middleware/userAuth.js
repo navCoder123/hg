@@ -1,36 +1,45 @@
 import jwt from "jsonwebtoken";
 
-const userAuth = (req, res, next) => {
+const userAuth = async (req, res, next) => {
   try {
-    let authHeader = req.headers.authorization;
+    const authHeader = req.headers.authorization;
 
+    // No access token provided
     if (!authHeader) {
-      return res.status(401).json({
+      return res.json({
         success: false,
-        message: "Not authorized. Please log in.",
+        message: "No token",
       });
     }
-
-    authHeader = authHeader.trim();
 
     const token = authHeader.split(" ")[1];
 
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "Not authorized. Invalid token.",
-      });
-    }
+    // Verify access token
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) {
+        // Token expired — frontend will auto-refresh it
+        if (err.name === "TokenExpiredError") {
+          return res.json({
+            success: false,
+            message: "ACCESS_TOKEN_EXPIRED",
+          });
+        }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Other JWT errors
+        return res.json({
+          success: false,
+          message: "Invalid token",
+        });
+      }
 
-    req.userId = decoded.id;
-
-    next();
+      // Token valid — attach user id to request
+      req.userId = decoded.id;
+      next();
+    });
   } catch (error) {
-    return res.status(401).json({
+    return res.json({
       success: false,
-      message: "Not authorized. Token expired or invalid.",
+      message: "Auth failed",
     });
   }
 };
